@@ -1,0 +1,62 @@
+---
+title: "fbb_modeling"
+format: html
+editor: visual
+execute: 
+  warning: false
+---
+```{r}
+library(tidyverse)
+library(keras)
+```
+
+```{r}
+df <- read_csv(here::here("data", "2022_2023_regular_season_data_111523.csv"))
+```
+
+## Modeling with neural networks
+
+```{r}
+# Assume df is your data frame
+# Preprocess the data
+data <- as.matrix(df)
+data <- normalize(data)
+
+# Split the data into training and testing sets
+set.seed(123)
+index <- sample(1:nrow(data), nrow(data) * 0.8)
+train_data <- data[index, ]
+test_data <- data[-index, ]
+
+# Define the network architecture
+model <- keras_model_sequential() %>%
+  layer_dense(units = 64, activation = "relu", input_shape = ncol(train_data)) %>%
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = ncol(train_data), activation = "linear")
+
+# Compile the model
+model %>% compile(
+  loss = "mean_squared_error",
+  optimizer = optimizer_adam(),
+  metrics = c("mean_absolute_error")
+)
+
+# Train the model
+history <- model %>% fit(
+  train_data, train_data,
+  epochs = 200,
+  batch_size = 32,
+  validation_data = list(test_data, test_data)
+)
+
+# Evaluate the model
+eval <- model %>% evaluate(test_data, test_data)
+print(eval)
+
+# Make predictions
+predictions <- model %>% predict(new_data)
+
+```
+
+
