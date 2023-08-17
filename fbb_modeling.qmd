@@ -5,58 +5,102 @@ editor: visual
 execute: 
   warning: false
 ---
+
 ```{r}
 library(tidyverse)
 library(keras)
+library(readr)
+library(dplyr)
 ```
 
 ```{r}
-df <- read_csv(here::here("data", "2022_2023_regular_season_data_111523.csv"))
+# reads in data set
+data <- read_csv(here::here("data", "2022_2023_regular_season_data_111523.csv"))
+
+# Renaming columns with special characters to avoid errors
+data <- data %>%
+  rename(
+    ThreeP = `3P`,
+    ThreePA = `3PA`,
+    ThreePperc = `3P%`,
+    TwoP = `2P`,
+    TwoPA = `2PA`,
+    TwoPperc = `2P%`
+  )
+
+# Identify players with TOT entries
+tot_players <- data %>% filter(Tm == "TOT") %>% pull(Player)
+
+# Get the TOT row for players with TOT entries
+tot_rows <- data %>% filter(Player %in% tot_players & Tm == "TOT")
+
+# For each TOT player, get the team from the last row
+last_team <- data %>% filter(Player %in% tot_players) %>%
+  group_by(Player) %>%
+  slice_tail(n = 1) %>%
+  select(Player, Tm)
+
+# Update the 'Tm' column with the most recent team for each player
+data %>%
+  group_by(Player) %>%
+  arrange(desc(row_number())) %>%
+  mutate(Tm = if_else(row_number() == 1, first(Tm), Tm)) %>%
+  filter(Tm == "TOT") %>%
+  ungroup()
+
+# Filter the dataset to remove individual team rows for players with TOT entries
+final_data <- data %>%
+  group_by(Player) %>%
+  slice_head(n = 1) %>%
+  ungroup()
+
+write_csv(new_data, "Data/new_data.csv")
+
 ```
 
 ## Modeling with neural networks
 
 ```{r}
-# Assume df is your data frame
-# Preprocess the data
-data <- as.matrix(df)
-data <- normalize(data)
-
-# Split the data into training and testing sets
-set.seed(123)
-index <- sample(1:nrow(data), nrow(data) * 0.8)
-train_data <- data[index, ]
-test_data <- data[-index, ]
-
-# Define the network architecture
-model <- keras_model_sequential() %>%
-  layer_dense(units = 64, activation = "relu", input_shape = ncol(train_data)) %>%
-  layer_dense(units = 32, activation = "relu") %>%
-  layer_dense(units = 16, activation = "relu") %>%
-  layer_dense(units = ncol(train_data), activation = "linear")
-
-# Compile the model
-model %>% compile(
-  loss = "mean_squared_error",
-  optimizer = optimizer_adam(),
-  metrics = c("mean_absolute_error")
-)
-
-# Train the model
-history <- model %>% fit(
-  train_data, train_data,
-  epochs = 200,
-  batch_size = 32,
-  validation_data = list(test_data, test_data)
-)
-
-# Evaluate the model
-eval <- model %>% evaluate(test_data, test_data)
-print(eval)
-
-# Make predictions
-predictions <- model %>% predict(new_data)
+# # Assume df is your data frame
+# # Preprocess the data
+# data <- as.matrix(df)
+# data <- normalize(data)
+# 
+# # Split the data into training and testing sets
+# set.seed(123)
+# index <- sample(1:nrow(data), nrow(data) * 0.8)
+# train_data <- data[index, ]
+# test_data <- data[-index, ]
+# 
+# # Define the network architecture
+# model <- keras_model_sequential() %>%
+#   layer_dense(units = 64, activation = "relu", input_shape = ncol(train_data)) %>%
+#   layer_dense(units = 32, activation = "relu") %>%
+#   layer_dense(units = 16, activation = "relu") %>%
+#   layer_dense(units = ncol(train_data), activation = "linear")
+# 
+# # Compile the model
+# model %>% compile(
+#   loss = "mean_squared_error",
+#   optimizer = optimizer_adam(),
+#   metrics = c("mean_absolute_error")
+# )
+# 
+# # Train the model
+# history <- model %>% fit(
+#   train_data, train_data,
+#   epochs = 200,
+#   batch_size = 32,
+#   validation_data = list(test_data, test_data)
+# )
+# 
+# # Evaluate the model
+# eval <- model %>% evaluate(test_data, test_data)
+# print(eval)
+# 
+# # Make predictions
+# predictions <- model %>% predict(new_data)
 
 ```
 
-
+<!--# <!--#  --> -->
