@@ -14,6 +14,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(here)
+library(fastDummies)
 ```
 
 ```{r}
@@ -79,7 +80,6 @@ ggsave(here::here("charts", "total_fpts_per_team.png"), plot = total_fpts_per_te
 
 ```
 
-
 ```{r}
 plot_team_fantasy_points <- function(data, team_name) {
   # Filter the data for the specified team
@@ -111,13 +111,81 @@ save_team_charts <- function(data) {
 ```
 
 ```{r}
-
+# # Calculate the age factor
+# age_factor <- 0.05 # Example age factor of 5% per year
+# 
+# # Calculate the average change in FPPG for players who got a year older
+# aging_effect <- final_data %>%
+#   group_by(Number) %>%
+#   arrange(Age) %>%
+#   mutate(FPPGchange = FPTS - lag(FPTS)) %>%
+#   filter(!is.na(FPPGchange)) %>%
+#   summarise(AgingEffect = mean(FPPGchange, na.rm = TRUE)) %>%
+#   pull(AgingEffect)
+# 
+# # Calculate the TeamPotential score for each player
+# final_data <- final_data %>%
+#   group_by(Tm) %>%
+#   mutate(TeamAverageFPPG = sum(FPTS, na.rm = TRUE) / sum(G, na.rm = TRUE)) %>%
+#   ungroup() %>%
+#   mutate(
+#     PlayerFPPG = FPTS / G,
+#     AgeFactor = 1 - (1 - age_factor)^(Age - min(Age)),
+#     TeamPotential = (PlayerFPPG * (1 - AgeFactor)) + (TeamAverageFPPG * (1 - AgeFactor)) + AgingEffect
+#   )
+# 
+# # View the updated data
+# head(final_data)
 ```
 
+## Modeling with neural networks try 2
 
+```{r}
+# Preprocess data
+final_data$Position <- as.factor(final_data$Pos)
+final_data <- dummy_cols(final_data, select_columns = 'Pos')
+final_data <- final_data %>% select(-Position)
 
+# Split data into features and target
+X <- final_data %>% select(Age, MP)
+y <- final_data$FPTS
 
-## Modeling with neural networks
+# Normalize features
+mean <- apply(X, 2, mean)
+std <- apply(X, 2, sd)
+X <- scale(X, center = mean, scale = std)
+
+# Define neural network model
+model <- keras_model_sequential() %>%
+  layer_dense(units = 64, activation = 'relu', input_shape = ncol(X)) %>%
+  layer_dense(units = 32, activation = 'relu') %>%
+  layer_dense(units = 1)
+
+# Compile model
+model %>% compile(
+  optimizer = optimizer_adam(lr = 0.01),
+  loss = 'mean_squared_error',
+  metrics = c('mean_absolute_error')
+)
+
+# Train model
+history <- model %>% fit(
+  X,
+  y,
+  epochs = 200,
+  batch_size = 32,
+  validation_split = 0.2
+)
+
+# Predict for a 25 year old center who plays 30 minutes per game
+new_data <- data.frame(Age = 25, Position_C = 1, Position_PF = 0, Position_PG = 0, Position_SF = 0, Position_SG = 0, Minutes = 30)
+new_data <- scale(new_data, center = mean, scale = std)
+prediction <- model %>% predict(as.matrix(new_data))
+
+print(prediction)
+```
+
+## Modeling with neural networks try 1
 
 ```{r}
 # # Assume df is your data frame
