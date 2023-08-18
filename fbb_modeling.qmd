@@ -5,58 +5,163 @@ editor: visual
 execute: 
   warning: false
 ---
+
 ```{r}
 library(tidyverse)
 library(keras)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(here)
 ```
 
 ```{r}
-df <- read_csv(here::here("data", "2022_2023_regular_season_data_111523.csv"))
+# THIS CODE CHUNK CLEANS UP CODE 
+
+# Read in data set
+data <- read_csv(here::here("data", "2022_2023_regular_season_data_81723.csv"))
+
+# Rename columns with special characters to avoid errors
+data <- data %>%
+  rename(
+    ThreeP = `3P`,
+    ThreePA = `3PA`,
+    ThreePperc = `3P%`,
+    TwoP = `2P`,
+    TwoPperc = `2P%`
+  )
+
+# Identify the most recent team for each player
+recent_team <- data %>%
+  group_by(Number) %>%
+  slice_tail(n = 1) %>%
+  select(Number, Tm)
+
+# Keep only the first row for each player
+first_rows <- data %>%
+  group_by(Number) %>%
+  slice_head(n = 1)
+
+# Join the datasets to get the most recent team for each player
+final_data <- first_rows %>%
+  left_join(recent_team, by = "Number") %>%
+  mutate(Tm = coalesce(Tm.y, Tm.x)) %>%
+  select(-Tm.x, -Tm.y)
+
+# Write the updated data to a new CSV file
+write_csv(final_data, "Data/final_data.csv")
 ```
+
+```{r}
+## Making some visuals
+# Group the data by team and sum the fantasy points
+team_fpts <- final_data %>%
+  group_by(Tm) %>%
+  summarise(Total_Fantasy_Points = sum(FPTS, na.rm = TRUE)) %>%
+  arrange(desc(Total_Fantasy_Points)) # Sort by total fantasy points in descending order
+
+# Convert the Tm variable to a factor with levels ordered by Total_Fantasy_Points
+team_fpts <- team_fpts %>%
+  mutate(Tm = factor(Tm, levels = .$Tm))
+
+# Create a bar chart of total fantasy points by team
+total_fpts_per_team <- ggplot(team_fpts, aes(x = Tm, y = Total_Fantasy_Points)) +
+  geom_bar(stat = "identity", width = 0.5,  # Make the bins half as narrow
+           aes(fill = Total_Fantasy_Points)) + # Color by total fantasy points
+  labs(title = "Total Fantasy Points by Team per Game", x = "Team", y = "Total Fantasy Points per Game") +
+  theme_minimal() +
+  scale_fill_gradient(low = "Yellow", high = "Purple") + # Set the colors for the fill gradient
+  theme(axis.text.x = element_text(size = 4))
+
+# Save image 
+ggsave(here::here("charts", "total_fpts_per_team.png"), plot = total_fpts_per_team, width = 6, height = 4)
+
+```
+
+
+```{r}
+plot_team_fantasy_points <- function(data, team_name) {
+  # Filter the data for the specified team
+  team_data <- data %>%
+    filter(Tm == team_name) %>%
+    arrange(desc(FPTS)) %>%
+    mutate(Player = factor(Player, levels = Player)) # Order players by descending fantasy points
+  
+  # Create a bar chart of the players' fantasy points
+  p <- ggplot(team_data, aes(x = Player, y = FPTS)) +
+    geom_bar(stat = "identity") +
+    labs(title = paste("Fantasy Points for", team_name), x = "Player", y = "Fantasy Points") +
+    theme_light() +
+    scale_fill_gradient(low = "red", high = "green") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for readability
+  
+  return(p)
+}
+
+save_team_charts <- function(data) {
+  unique_teams <- unique(data$Tm)
+  
+  for (team in unique_teams) {
+    plot <- plot_team_fantasy_points(data, team)
+    file_name <- paste0("charts/", team, "_fantasy_points.png")
+    ggsave(here::here(file_name), plot = plot, width = 10, height = 6)
+  }
+}
+```
+
+```{r}
+
+```
+
+
+
 
 ## Modeling with neural networks
 
 ```{r}
-# Assume df is your data frame
-# Preprocess the data
-data <- as.matrix(df)
-data <- normalize(data)
-
-# Split the data into training and testing sets
-set.seed(123)
-index <- sample(1:nrow(data), nrow(data) * 0.8)
-train_data <- data[index, ]
-test_data <- data[-index, ]
-
-# Define the network architecture
-model <- keras_model_sequential() %>%
-  layer_dense(units = 64, activation = "relu", input_shape = ncol(train_data)) %>%
-  layer_dense(units = 32, activation = "relu") %>%
-  layer_dense(units = 16, activation = "relu") %>%
-  layer_dense(units = ncol(train_data), activation = "linear")
-
-# Compile the model
-model %>% compile(
-  loss = "mean_squared_error",
-  optimizer = optimizer_adam(),
-  metrics = c("mean_absolute_error")
-)
-
-# Train the model
-history <- model %>% fit(
-  train_data, train_data,
-  epochs = 200,
-  batch_size = 32,
-  validation_data = list(test_data, test_data)
-)
-
-# Evaluate the model
-eval <- model %>% evaluate(test_data, test_data)
-print(eval)
-
-# Make predictions
-predictions <- model %>% predict(new_data)
+# # Assume df is your data frame
+# # Preprocess the data
+# data <- as.matrix(df)
+# data <- normalize(data)
+# 
+# # Split the data into training and testing sets
+# set.seed(123)
+# index <- sample(1:nrow(data), nrow(data) * 0.8)
+# train_data <- data[index, ]
+# test_data <- data[-index, ]
+# 
+# # Define the network architecture
+# model <- keras_model_sequential() %>%
+#   layer_dense(units = 64, activation = "relu", input_shape = ncol(train_data)) %>%
+#   layer_dense(units = 32, activation = "relu") %>%
+#   layer_dense(units = 16, activation = "relu") %>%
+#   layer_dense(units = ncol(train_data), activation = "linear")
+# 
+# # Compile the model
+# model %>% compile(
+#   loss = "mean_squared_error",
+#   optimizer = optimizer_adam(),
+#   metrics = c("mean_absolute_error")
+# )
+# 
+# # Train the model
+# history <- model %>% fit(
+#   train_data, train_data,
+#   epochs = 200,
+#   batch_size = 32,
+#   validation_data = list(test_data, test_data)
+# )
+# 
+# # Evaluate the model
+# eval <- model %>% evaluate(test_data, test_data)
+# print(eval)
+# 
+# # Make predictions
+# predictions <- model %>% predict(new_data)
 
 ```
 
+<!--# <!--#  -->
 
+--\>
