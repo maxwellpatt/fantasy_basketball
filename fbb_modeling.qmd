@@ -11,52 +11,111 @@ library(tidyverse)
 library(keras)
 library(readr)
 library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(here)
 ```
 
 ```{r}
-# reads in data set
-data <- read_csv(here::here("data", "2022_2023_regular_season_data_111523.csv"))
+# THIS CODE CHUNK CLEANS UP CODE 
 
-# Renaming columns with special characters to avoid errors
+# Read in data set
+data <- read_csv(here::here("data", "2022_2023_regular_season_data_81723.csv"))
+
+# Rename columns with special characters to avoid errors
 data <- data %>%
   rename(
     ThreeP = `3P`,
     ThreePA = `3PA`,
     ThreePperc = `3P%`,
     TwoP = `2P`,
-    TwoPA = `2PA`,
     TwoPperc = `2P%`
   )
 
-# Identify players with TOT entries
-tot_players <- data %>% filter(Tm == "TOT") %>% pull(Player)
-
-# Get the TOT row for players with TOT entries
-tot_rows <- data %>% filter(Player %in% tot_players & Tm == "TOT")
-
-# For each TOT player, get the team from the last row
-last_team <- data %>% filter(Player %in% tot_players) %>%
-  group_by(Player) %>%
+# Identify the most recent team for each player
+recent_team <- data %>%
+  group_by(Number) %>%
   slice_tail(n = 1) %>%
-  select(Player, Tm)
+  select(Number, Tm)
 
-# Update the 'Tm' column with the most recent team for each player
-data %>%
-  group_by(Player) %>%
-  arrange(desc(row_number())) %>%
-  mutate(Tm = if_else(row_number() == 1, first(Tm), Tm)) %>%
-  filter(Tm == "TOT") %>%
-  ungroup()
+# Keep only the first row for each player
+first_rows <- data %>%
+  group_by(Number) %>%
+  slice_head(n = 1)
 
-# Filter the dataset to remove individual team rows for players with TOT entries
-final_data <- data %>%
-  group_by(Player) %>%
-  slice_head(n = 1) %>%
-  ungroup()
+# Join the datasets to get the most recent team for each player
+final_data <- first_rows %>%
+  left_join(recent_team, by = "Number") %>%
+  mutate(Tm = coalesce(Tm.y, Tm.x)) %>%
+  select(-Tm.x, -Tm.y)
 
-write_csv(new_data, "Data/new_data.csv")
+# Write the updated data to a new CSV file
+write_csv(final_data, "Data/final_data.csv")
+```
+
+```{r}
+## Making some visuals
+# Group the data by team and sum the fantasy points
+team_fpts <- final_data %>%
+  group_by(Tm) %>%
+  summarise(Total_Fantasy_Points = sum(FPTS, na.rm = TRUE)) %>%
+  arrange(desc(Total_Fantasy_Points)) # Sort by total fantasy points in descending order
+
+# Convert the Tm variable to a factor with levels ordered by Total_Fantasy_Points
+team_fpts <- team_fpts %>%
+  mutate(Tm = factor(Tm, levels = .$Tm))
+
+# Create a bar chart of total fantasy points by team
+total_fpts_per_team <- ggplot(team_fpts, aes(x = Tm, y = Total_Fantasy_Points)) +
+  geom_bar(stat = "identity", width = 0.5,  # Make the bins half as narrow
+           aes(fill = Total_Fantasy_Points)) + # Color by total fantasy points
+  labs(title = "Total Fantasy Points by Team per Game", x = "Team", y = "Total Fantasy Points per Game") +
+  theme_minimal() +
+  scale_fill_gradient(low = "Yellow", high = "Purple") + # Set the colors for the fill gradient
+  theme(axis.text.x = element_text(size = 4))
+
+# Save image 
+ggsave(here::here("charts", "total_fpts_per_team.png"), plot = total_fpts_per_team, width = 6, height = 4)
 
 ```
+
+
+```{r}
+plot_team_fantasy_points <- function(data, team_name) {
+  # Filter the data for the specified team
+  team_data <- data %>%
+    filter(Tm == team_name) %>%
+    arrange(desc(FPTS)) %>%
+    mutate(Player = factor(Player, levels = Player)) # Order players by descending fantasy points
+  
+  # Create a bar chart of the players' fantasy points
+  p <- ggplot(team_data, aes(x = Player, y = FPTS)) +
+    geom_bar(stat = "identity") +
+    labs(title = paste("Fantasy Points for", team_name), x = "Player", y = "Fantasy Points") +
+    theme_light() +
+    scale_fill_gradient(low = "red", high = "green") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for readability
+  
+  return(p)
+}
+
+save_team_charts <- function(data) {
+  unique_teams <- unique(data$Tm)
+  
+  for (team in unique_teams) {
+    plot <- plot_team_fantasy_points(data, team)
+    file_name <- paste0("charts/", team, "_fantasy_points.png")
+    ggsave(here::here(file_name), plot = plot, width = 10, height = 6)
+  }
+}
+```
+
+```{r}
+
+```
+
+
+
 
 ## Modeling with neural networks
 
@@ -103,4 +162,6 @@ write_csv(new_data, "Data/new_data.csv")
 
 ```
 
-<!--# <!--#  --> -->
+<!--# <!--#  -->
+
+--\>
