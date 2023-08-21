@@ -230,6 +230,113 @@ ggsave(filename = "charts/correlations_with_fpts.png", plot = correlation_plot, 
 ## Weighted rankings
 
 ```{r}
+# Define the function to create a weighted ranking
+create_weighted_ranking <- function(data, columns, weights) {
+  # Check if the lengths of the columns and weights vectors are the same
+  if (length(columns) != length(weights)) {
+    stop("Error: The lengths of the columns and weights vectors must be the same.")
+  }
+
+  # Check if all columns exist in the data
+  for (col in columns) {
+    if (!col %in% names(data)) {
+      stop(paste("Error: '", col, "' column not found in the data.", sep = ""))
+    }
+  }
+
+  # Create the weighted sum of the specified columns
+  weighted_sum <- rowSums(mapply("*", data[columns], weights))
+
+  # Create a new column in the data with the weighted ranking value
+  data$Weighted_Ranking <- rank(-weighted_sum)
+
+  return(data)
+}
+
+# Example usage:
+columns_to_consider <- c("FPTS", "Age", "G", "MP", "FG", "BLK", "TRB")
+weights <- c("FPTS" = 0.5, "Age" = -0.5, "G" = 0.1, "MP" = 0.15, "FG" = 0.15,
+             "BLK" = 0.05, "TRB" = 0.05) # Example weights
+
+# Create the new column with the weighted ranking value
+final_data_with_ranking <- create_weighted_ranking(final_data, columns_to_consider, weights)
+
+# Display the first few rows of the updated data frame
+head(final_data_with_ranking)
+
+
+# Save the updated data frame to a new CSV file
+write.csv(final_data_with_ranking, file = "final_data_with_ranking_v2.csv", row.names = FALSE)
+
+```
+
+## Age-adjusted value
+
+```{r}
+# Define the function to create a weighted ranking
+create_weighted_ranking <- function(data, columns, weights, age_weight) {
+  # Check if the lengths of the columns and weights vectors are the same
+  if (length(columns) != length(weights)) {
+    stop("Error: The lengths of the columns and weights vectors must be the same.")
+  }
+
+  # Check if all columns exist in the data
+  for (col in columns) {
+    if (!col %in% names(data)) {
+      stop(paste("Error: '", col, "' column not found in the data.", sep = ""))
+    }
+  }
+
+  # Update the weight for the 'Age' column
+  weights[columns == "Age"] <- age_weight
+
+  # Create the weighted sum of the specified columns
+  weighted_sum <- rowSums(mapply("*", data[columns], weights))
+
+  # Create a new column in the data with the weighted ranking value
+  data$Weighted_Ranking <- rank(-weighted_sum)
+
+  return(data)
+}
+
+# Example usage:
+columns_to_consider <- c("FPTS", "Age", "G", "MP", "FG")
+weights <- c(0.5, -0.1, 0.2, 0.1, 0.1) # Example weights
+
+# Create an empty list to store the data frames with different age weights
+dfs <- list()
+
+# Iterate over 10 different age weights from -0.1 to -1
+age_weights <- seq(-0.1, -1, length.out = 10)
+
+for (i in seq_along(age_weights)) {
+  # Create the new column with the weighted ranking value for each age weight
+  df <- create_weighted_ranking(final_data, columns_to_consider, weights, age_weights[i])
+
+  # Rename the Weighted_Ranking column to the corresponding age weight
+  col_name <- paste0("Weight_", sprintf("%.1f", age_weights[i]))
+  df <- df %>% rename(!!col_name := Weighted_Ranking)
+
+  # Add the data frame to the list
+  dfs[[i]] <- df
+}
+
+# Combine the data frames by player
+combined_df <- dfs[[1]] %>%
+  select(Player, matches("Weight"))
+
+for (i in 2:length(dfs)) {
+  col_name <- names(dfs[[i]])[grepl("Weight", names(dfs[[i]]))]
+  combined_df <- left_join(combined_df, dfs[[i]] %>% select(Player, !!col_name), by = "Player")
+}
+
+write.csv(combined_df, "charts/weighted_rankings.csv", row.names = FALSE)
+
+
+
+```
+
+```{r}
 # # Calculate the age factor
 # age_factor <- 0.05 # Example age factor of 5% per year
 # 
