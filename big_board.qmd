@@ -1,0 +1,150 @@
+---
+title: "Fantasy Big Board"
+format: html
+editor: visual
+---
+
+# Fantasy Big Board
+
+Draft picks: *2, 23, 35, 38, 50, 71, 74, 95, 98, 119, 122, 143, 147, 167, 170*
+
+PG: Scoot Henderson
+
+SG: Luka Doncic
+
+SF: Jaylen Brown
+
+PF: Siakam
+
+C: Kessler
+
+G: Ausar Thompson
+
+F: Jimmy Butler
+
+U: CJ
+
+U: Grant
+
+U: Draymond
+
+### [#2]{.underline}
+
+**Luka Doncic**
+
+Nikola Jokic
+
+Anthony Edwards
+
+SGA
+
+### [**#23**]{.underline}
+
+Scoot Henderson
+
+Mikal Bridges
+
+Darius Garland
+
+KAT
+
+De'Aaron Fox
+
+Bam
+
+### [#35/#38]{.underline}
+
+Jalen Green
+
+Steph Curry
+
+Jamal Murrayy
+
+Jaylen Brown
+
+Sengun
+
+Dejounte Murray
+
+FVV
+
+### [#50]{.underline}
+
+Kessler
+
+Siakam
+
+Claxton
+
+Brunson
+
+Kyrie
+
+### [#71/74]{.underline}
+
+Jrue Holiday
+
+Ausar Thompson
+
+PG
+
+Kuz
+
+Lavine
+
+Gobert
+
+Okongwu
+
+Beal
+
+### [#95/98]{.underline}
+
+Jerami Grant
+
+Cj McCollum
+
+Hield
+
+Robert Williams
+
+Middleton
+
+### #119/122
+
+Vucevic
+
+Capela
+
+Wiggins
+
+Aaron Gordon
+
+RJ Barrett
+
+Smart
+
+Dinwiddie
+
+Draymond
+
+### [#143/147]{.underline}
+
+Gary Trent Jr
+
+Quickley
+
+Oubre
+
+Brook Lopez
+
+Gradey Dick
+
+Westbrook
+
+Overall Rankings
+
+1.  Jokic
+2.  Luka
+3.  Ant
+4.  SGA
